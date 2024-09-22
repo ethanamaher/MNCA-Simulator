@@ -12,7 +12,7 @@ import java.util.ArrayList;
 public class MNCA {
 
     private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/worms";
-    private Dimension imageSize;
+    private final Dimension imageSize;
     private BufferedImage image;
     private int[][] imageArray;
     boolean needsRedraw;
@@ -43,8 +43,13 @@ public class MNCA {
         step();
     }
 
+    /**
+     * draw the current state
+     *
+     * @param g Graphics
+     */
     synchronized protected void draw(Graphics g) {
-        if(true) {
+
             Graphics2D g2 = (Graphics2D) g;
             for (int i = 0; i < imageArray.length; i++) {
                 for (int j = 0; j < imageArray[i].length; j++) {
@@ -58,10 +63,16 @@ public class MNCA {
                 }
             }
             g2.dispose();
-        }
+
 
     }
 
+    /**
+     * converts the starting state of the automata to a 2d int[]
+     * where -1 denotes dead cell and 1 denotes living cell
+     * @param image the image of the start state
+     * @return 2d array of the start state
+     */
     private static int[][] convertTo2D(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
@@ -85,6 +96,13 @@ public class MNCA {
         return result;
     }
 
+    /**
+     * Converts an image to a list of coordinates that contain their relative distance
+     * from the center coordinate
+     *
+     * @param image image of the neighborhood
+     * @return list of relative coordinates
+     */
     private static List<Coordinate> convertTo2DRelativeCoordinates(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
@@ -114,6 +132,11 @@ public class MNCA {
         return result;
     }
 
+    /**
+     * Loads the neighborhoods from resources.neighborhoods
+     * reads image file and converts to 2D coordinate array denoting the relative distances a neighbor would be from the center
+     * @return List<List<Coordinate>> list of coordinates for all neighborhoods
+     */
     private List<List<Coordinate>> loadNeighborhoods() {
         List<List<Coordinate>> neighborhoods = new ArrayList<>();
         File neighborhoodDirectory = new File(NEIGHBORHOOD_DIR);
@@ -130,6 +153,9 @@ public class MNCA {
         return neighborhoods;
     }
 
+    /**
+     * Do an iteration over the cellular automata
+     */
     private void step() {
         int[][] nextIterationArray = new int[imageArray.length][imageArray[0].length];
 
@@ -152,6 +178,16 @@ public class MNCA {
         }
     }
 
+    /*
+    TODO: FIX RULES BECAUSE THIS SUCKS
+        * need to store int the form of
+        * [[min, max, bool], [min, max, bool]] for each neighborhood
+        * ex: [[0, 5, true], [6, 10, false]]
+        * for neighborhood 0
+        * if 0-5 neighbors cell gets life
+        * else if 6 to 10 neighbors cell dies
+        * else cell value doesnt change
+     */
     private int checkRules(int neighborhood, int neighborCount, int curr) {
         if(neighborhood == 0) {
             if(neighborCount >= 2 && neighborCount <= 45) return -1;
