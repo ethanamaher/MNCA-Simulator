@@ -4,6 +4,12 @@ MNCA's are the next step of traditional cellular automata, for example, Conway's
 
 Because this is in Java it's not very fast when the images become really big so try not to go above 800x600px and more than 5 neighborhoods.
 
+
+
+https://github.com/user-attachments/assets/9a63f985-c66f-43ab-8550-112dc75cb0d3
+
+
+
 Inspired by:
 
 SLACKERMANZ. [Understanding multiple neighborhood cellular automata](https://slackermanz.com/understanding-multiple-neighborhood-cellular-automata/), 2021.
