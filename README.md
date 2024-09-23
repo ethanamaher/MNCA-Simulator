@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/5b006d1e-f81e-4fad-86f7-d37ee3ec5efb
 
 
 
-Inspired by:
+# Inspired by:
 
 SLACKERMANZ. [Understanding multiple neighborhood cellular automata](https://slackermanz.com/understanding-multiple-neighborhood-cellular-automata/), 2021.
 
