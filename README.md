@@ -6,7 +6,7 @@ Because this is in Java it's not very fast when the images become really big so 
 
 
 
-https://github.com/user-attachments/assets/9a63f985-c66f-43ab-8550-112dc75cb0d3
+https://github.com/user-attachments/assets/5b006d1e-f81e-4fad-86f7-d37ee3ec5efb
 
 
 
