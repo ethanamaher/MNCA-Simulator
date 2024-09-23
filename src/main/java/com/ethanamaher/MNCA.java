@@ -24,7 +24,7 @@ public class MNCA {
         System.out.println("INITIALIZED");
         needsRedraw = true;
         try {
-            image = ImageIO.read(new File("src/main/resources/Sprite-0001.png"));
+            image = ImageIO.read(new File("src/main/resources/starts/start-0001.png"));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
