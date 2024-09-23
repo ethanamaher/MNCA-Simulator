@@ -2,14 +2,9 @@ package com.ethanamaher;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.datatransfer.MimeTypeParseException;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -80,7 +75,6 @@ public class MNCA {
      */
     private static int[][] convertTo2D(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
-        final boolean hasAlphaChannel = image.getAlphaRaster() != null;
         final int width = image.getWidth();
         final int height = image.getHeight();
         int[][] result = new int[height][width];
