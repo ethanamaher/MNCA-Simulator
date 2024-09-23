@@ -1,4 +1,4 @@
-# Visualizer for Multi-Neighborhood Cellular Automata
+# Simulator for Multi-Neighborhood Cellular Automata
 
 MNCA's are the next step of traditional cellular automata, for example, Conway's Game of Life. By using multiple neighborhoods instead of just one, there is an huge increase in the diversity of states that can emerge.
 
