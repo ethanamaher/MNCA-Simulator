@@ -8,17 +8,17 @@ import java.io.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Scanner;
 
 public class MNCA {
 
     private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/test";
     private final Dimension imageSize;
-    private BufferedImage image;
+    private final BufferedImage image;
     private int[][] imageArray;
     boolean needsRedraw;
     List<List<Coordinate>> neighborhoods;
-    List<HashMap<int[], Boolean>> neighborhoodRules;
-
+    List<HashMap<double[], Integer>> neighborhoodRules;
 
     public MNCA() {
         System.out.println("INITIALIZED");
@@ -36,7 +36,7 @@ public class MNCA {
     }
 
     /**
-     *  TODO pause on close window
+     * TODO pause on close window
      */
     public void closing() {
 
@@ -57,8 +57,8 @@ public class MNCA {
      */
     synchronized protected void draw(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
-        for (int i = 0; i < imageArray.length; i++) {
-            for (int j = 0; j < imageArray[i].length; j++) {
+        for (int i = 0; i < imageArray.length; i++) { // row in array = y value in image
+            for (int j = 0; j < imageArray[i].length; j++) { // col in array = x value in image
                 if (imageArray[i][j] != 0) {
                     g2.setColor(Color.WHITE); // living cell
                     g2.drawLine(j, i, j, i);
@@ -74,6 +74,14 @@ public class MNCA {
     /**
      * converts the starting state of the automata to a 2d int[]
      * where -1 denotes dead cell and 1 denotes living cell
+     * <p>
+     * TODO add multiple states by color
+     * <p>
+     * argb = 0xffffffff
+     * (1111 1111) (1111 1111) (1111 1111) (1111 1111)
+     * alpha = argb >> 24
+     * red = argb >> 16
+     * blue
      *
      * @param image the image of the start state
      * @return 2d array of the start state
@@ -100,11 +108,13 @@ public class MNCA {
     /**
      * Converts an image to a list of coordinates that contain their relative distance
      * from the center coordinate
+     * <p>
+     * TODO add multiple states by color
      *
      * @param image image of the neighborhood
      * @return list of relative coordinates
      */
-    private static List<Coordinate> convertTo2DRelativeCoordinates(BufferedImage image) {
+    private static List<Coordinate> convertToRelativeCoordinates(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
         final int height = image.getHeight();
@@ -139,39 +149,60 @@ public class MNCA {
         List<List<Coordinate>> neighborhoods = new ArrayList<>();
         File neighborhoodDirectory = new File(NEIGHBORHOOD_DIR);
         File[] filesList = neighborhoodDirectory.listFiles();
-        for (File f : filesList) {
-            BufferedImage neighborhoodImage;
-            try {
+        BufferedImage neighborhoodImage;
+        try {
+            for (File f : filesList) {
                 neighborhoodImage = ImageIO.read(f);
                 if (neighborhoodImage == null) continue;
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                neighborhoods.add(convertToRelativeCoordinates(neighborhoodImage));
             }
-            neighborhoods.add(convertTo2DRelativeCoordinates(neighborhoodImage));
+        } catch (IOException e) {
+            System.err.println("Neighborhood file not found");
+            throw new RuntimeException(e);
         }
         return neighborhoods;
     }
 
     /**
-     * TODO figure this out
+     * Loads neighbordhood rules from its rules.txt file
+     *
+     * stores them in list of hashmaps [min, max] -> nextState
+     * is there a more efficient way to do this?
      *
      * @return
      */
-    private List<HashMap<int[], Boolean>> loadNeighborhoodRules() {
-        List<HashMap<int[], Boolean>> rulesList = new ArrayList<>();
+    private List<HashMap<double[], Integer>> loadNeighborhoodRules() {
+        neighborhoodRules = new ArrayList<>();
         File neighborhoodRulesFile = new File(NEIGHBORHOOD_DIR + "/rules.txt");
-
+        Scanner fileReader;
         try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(neighborhoodRulesFile)));
-            String rule = br.readLine();
+            fileReader = new Scanner(new FileInputStream(neighborhoodRulesFile));
+            int n = fileReader.nextInt();
+            int curr = 0;
+            while (curr < n) {
+                int rulec = fileReader.nextInt();
+                neighborhoodRules.add(new HashMap<>());
+                for (int i = 0; i < rulec; i++) {
+                    double intervalMin = fileReader.nextDouble();
+                    double intervalMax = fileReader.nextDouble();
+                    int nextState = fileReader.nextInt();
+                    neighborhoodRules.get(curr).put(new double[]{intervalMin, intervalMax}, nextState);
+                }
+                curr++;
+            }
 
-            System.out.println(rule);
+//            for(HashMap<double[], Integer> hm : neighborhoodRules) {
+//                for(double[] key : hm.keySet()) {
+//                    System.out.printf("[%.3f, %.3f] %d%n", key[0], key[1], hm.get(key));
+//                }
+//                System.out.println();
+//            }
 
-
+            return neighborhoodRules;
         } catch (IOException e) {
             System.out.println("NO RULES FILE FOUND");
         }
-        return rulesList;
+        return null;
     }
 
     /**
@@ -202,6 +233,10 @@ public class MNCA {
 
     /**
      * Checks the expected next state of i, j based on the rules of its neighborhoods
+     * <p>
+     * [[.230, .320], 0],
+     * [.470, .550], 1],
+     * [.710, .800], 1],
      *
      * @param neighborhoodSumAvgs the percentage of neighbor cells on in each neighborhood
      * @param curr                state of current cell i, j
@@ -210,22 +245,12 @@ public class MNCA {
     private int checkRules(double[] neighborhoodSumAvgs, int curr) {
         int output = curr;
 
-
-        if (neighborhoodSumAvgs[0] >= .230 && neighborhoodSumAvgs[0] <= .320)
-            output = 0;
-        else if (neighborhoodSumAvgs[0] >= .470 && neighborhoodSumAvgs[0] <= .550)
-            output = 1;
-        else if (neighborhoodSumAvgs[0] >= .710 && neighborhoodSumAvgs[0] <= .800)
-            output = 1;
-
-        if (neighborhoodSumAvgs[1] >= .110 && neighborhoodSumAvgs[1] <= .260)
-            output = 0;
-        else if (neighborhoodSumAvgs[1] >= .370 && neighborhoodSumAvgs[1] <= .460)
-            output = 1;
-        else if (neighborhoodSumAvgs[1] >= .520 && neighborhoodSumAvgs[1] <= .650)
-            output = 0;
-        else if (neighborhoodSumAvgs[1] >= .730 && neighborhoodSumAvgs[1] <= .860)
-            output = 0;
+        for(int i = 0; i < neighborhoodSumAvgs.length; i++) {
+            for(double[] range : neighborhoodRules.get(i).keySet()) {
+                if(neighborhoodSumAvgs[i] >= range[0] && neighborhoodSumAvgs[i] <= range[1])
+                    output = neighborhoodRules.get(i).get(range);
+            }
+        }
 
 
         return output;

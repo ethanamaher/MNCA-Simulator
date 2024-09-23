@@ -5,14 +5,14 @@ import java.awt.*;
 
 public class VisualizerPanel extends JPanel implements Runnable {
     private final MNCA MNCA;
-    private final int FPS = 60;
+    private final int FPS = 30;
 
     private Thread gameThread;
 
     public VisualizerPanel() {
         setLayout(new BorderLayout(2, 2));
         setBackground(Color.LIGHT_GRAY);
-        setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+        setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 2));
         MNCA = new MNCA();
         setPreferredSize(MNCA.getImageSize());
         setOpaque(true);
