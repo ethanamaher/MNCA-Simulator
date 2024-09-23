@@ -13,11 +13,11 @@ public class VisualizerPanel extends JPanel implements Runnable{
     public VisualizerPanel() {
         setLayout(new BorderLayout(2, 2));
         setBackground(Color.LIGHT_GRAY);
-        setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
+        setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
         MNCA = new MNCA();
         setPreferredSize(MNCA.getImageSize());
         setOpaque(true);
-        setBackground(Color.LIGHT_GRAY);
+        setBackground(Color.BLACK);
 
     }
 

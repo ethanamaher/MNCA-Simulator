@@ -6,10 +6,10 @@ import java.awt.event.WindowEvent;
 
 public class VisualizerFrame extends JFrame {
     public VisualizerFrame() {
-       super("Math Visualizer");
-       VisualizerPanel panel = new VisualizerPanel();
-       final MNCA display = panel.getDisplay();
-        setContentPane(panel);
+        super("MNCA Visualizer");
+        VisualizerPanel panel = new VisualizerPanel();
+        final MNCA display = panel.getDisplay();
+        this.setContentPane(panel);
         pack();
 
         addWindowListener(new WindowAdapter() {
@@ -18,6 +18,8 @@ public class VisualizerFrame extends JFrame {
                 display.closing();
             }
         });
+
+        panel.startGameThread();
     }
 
 

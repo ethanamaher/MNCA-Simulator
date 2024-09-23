@@ -2,33 +2,41 @@ package com.ethanamaher;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.datatransfer.MimeTypeParseException;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 
 public class MNCA {
 
-    private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/worms";
+    private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/test";
     private final Dimension imageSize;
     private BufferedImage image;
     private int[][] imageArray;
     boolean needsRedraw;
     List<List<Coordinate>> neighborhoods;
+    List<HashMap<int[], Boolean>> neighborhoodRules;
 
 
     public MNCA() {
+        System.out.println("INITIALIZED");
         needsRedraw = true;
         try {
-            image = ImageIO.read(new File("src/main/resources/startKlecks.png"));
+            image = ImageIO.read(new File("src/main/resources/Sprite-0001.png"));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
         imageSize = new Dimension(image.getWidth(), image.getHeight());
         imageArray = convertTo2D(image);
         neighborhoods = loadNeighborhoods();
+        neighborhoodRules = loadNeighborhoodRules();
     }
 
     public void closing() {
@@ -49,22 +57,19 @@ public class MNCA {
      * @param g Graphics
      */
     synchronized protected void draw(Graphics g) {
-
             Graphics2D g2 = (Graphics2D) g;
             for (int i = 0; i < imageArray.length; i++) {
                 for (int j = 0; j < imageArray[i].length; j++) {
-                    if (imageArray[i][j] != -1) {
-                        g2.setColor(Color.BLACK);
+                    if (imageArray[i][j] != 0) {
+                        g2.setColor(Color.WHITE); // living cell
                         g2.drawLine(j, i, j, i);
                     } else {
-                        g2.setColor(Color.LIGHT_GRAY);
+                        g2.setColor(Color.BLACK); // dead cell
                         g2.drawLine(j, i, j, i);
                     }
                 }
             }
             g2.dispose();
-
-
     }
 
     /**
@@ -75,24 +80,21 @@ public class MNCA {
      */
     private static int[][] convertTo2D(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        final boolean hasAlphaChannel = image.getAlphaRaster() != null;
         final int width = image.getWidth();
         final int height = image.getHeight();
         int[][] result = new int[height][width];
-        for(int pixel = 0, row = 0, col = 0; pixel + 2 < pixels.length; pixel += 3) {
-            int argb = 0;
-            argb += -16777216; // alpha channel
-            argb += ((int) pixels[pixel] & 0xff); // blue
-            argb += ((int) pixels[pixel+1] & 0xff << 8); // green
-            argb += ((int) pixels[pixel+2] & 0xff << 16); // red
 
-            result[row][col] = (argb == -1) ? -1 : 1;
-
+        for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel ++) {
+            int set = pixels[pixel]+1;
+            result[row][col] = set;
             col++;
-            if(col == width) {
+            if (col == width) {
                 col = 0;
                 row++;
             }
         }
+
         return result;
     }
 
@@ -108,21 +110,17 @@ public class MNCA {
         final int width = image.getWidth();
         final int height = image.getHeight();
         List<Coordinate> result = new ArrayList<>();
-        for(int pixel = 0, row = 0, col = 0; pixel + 2 < pixels.length; pixel += 3) {
-            int argb = 0;
-            argb += -16777216; // alpha channel
-            argb += ((int) pixels[pixel] & 0xff); // blue
-            argb += ((int) pixels[pixel + 1] & 0xff << 8); // green
-            argb += ((int) pixels[pixel + 2] & 0xff << 16); // red
 
+        for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel++) {
+            int set = pixels[pixel]+1;
 
-            if (argb != -1) {
-                Coordinate relativeCoordinate = new Coordinate(col-width/2, row-height/2);
-                if(!(relativeCoordinate.getX() == 0 && relativeCoordinate.getY() == 0)) {
-                    result.add(relativeCoordinate);
+            if(set==1) {
+                Coordinate relative = new Coordinate(col-width/2, row-height/2);
+
+                if(!(relative.getX() == 0 && relative.getY() == 0)) {
+                    result.add(relative);
                 }
             }
-
             col++;
             if (col == width) {
                 col = 0;
@@ -145,6 +143,7 @@ public class MNCA {
             BufferedImage neighborhoodImage;
             try {
                 neighborhoodImage = ImageIO.read(f);
+                if(neighborhoodImage==null) continue;
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -153,19 +152,38 @@ public class MNCA {
         return neighborhoods;
     }
 
+    private List<HashMap<int[], Boolean>> loadNeighborhoodRules() {
+        List<HashMap<int[], Boolean>> rulesList = new ArrayList<>();
+        File neighborhoodRulesFile = new File(NEIGHBORHOOD_DIR + "/rules.txt");
+
+        try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(neighborhoodRulesFile)));
+            String rule = br.readLine();
+
+            System.out.println(rule);
+
+
+        } catch (IOException e) {
+            System.out.println("NO RULES");
+        }
+        return rulesList;
+    }
+
     /**
      * Do an iteration over the cellular automata
      */
     private void step() {
         int[][] nextIterationArray = new int[imageArray.length][imageArray[0].length];
-
         for(int i = 0; i < imageArray.length; i++) {
             for(int j = 0; j < imageArray[i].length; j++) {
                 int curr = imageArray[i][j];
+                    double[] neighborhoodSums = new double[neighborhoods.size()];
                     for(int k = 0; k < neighborhoods.size(); k++) {
                         int neighborCount = getNeighborCount(neighborhoods.get(k), i, j);
-                        nextIterationArray[i][j] = checkRules(k, neighborCount, curr);
+                        neighborhoodSums[k] = (double)neighborCount/neighborhoods.get(k).size();
                     }
+                nextIterationArray[i][j] = checkRules(neighborhoodSums, curr);
+
             }
         }
 
@@ -178,56 +196,50 @@ public class MNCA {
         }
     }
 
-    /*
-    TODO: FIX RULES BECAUSE THIS SUCKS
-        * need to store int the form of
-        * [[min, max, bool], [min, max, bool]] for each neighborhood
-        * ex: [[0, 5, true], [6, 10, false]]
-        * for neighborhood 0
-        * if 0-5 neighbors cell gets life
-        * else if 6 to 10 neighbors cell dies
-        * else cell value doesnt change
+    /**
+     * Checks the expected next state of i, j based on the rules of its neighborhoods
+     *
+     * @param neighborhoodSumAvgs the percentage of neighbor cells on in each neighborhood
+     * @param curr state of current cell i, j
+     * @return the expected next state of cell i, j
      */
-    private int checkRules(int neighborhood, int neighborCount, int curr) {
-        if(neighborhood == 0) {
-            if(neighborCount >= 2 && neighborCount <= 45) return -1;
-            else if (neighborCount >= 49 && neighborCount <= 51) return 1;
-            else return curr;
-        } else if(neighborhood == 1) {
-            if(neighborCount >= 20 && neighborCount <= 55) return -1;
-            else if(neighborCount >= 5 && neighborCount <= 14) return 1;
-            else return curr;
-        } else if(neighborhood == 2) {
-            if(neighborCount >= 4 && neighborCount <= 37) return -1;
-            else if(neighborCount >= 39 && neighborCount <= 41) return 1;
-            else return curr;
-        }
+    private int checkRules(double[] neighborhoodSumAvgs, int curr) {
+        int output = curr;
 
-        //bacteria
-//        if (neighborhood == 0) {
-//            if (neighborCount >= 0 && neighborCount <= 17) return -1;
-//            else if (neighborCount >= 40 && neighborCount <= 42) return 1;
-//            else return curr;
-//        } else if (neighborhood == 1) {
-//            if (neighborCount >= 10 && neighborCount <= 13) return 1;
-//            else return curr;
-//        } else if (neighborhood == 2) {
-//            if (neighborCount >= 9 && neighborCount <= 21) return -1;
-//            else return curr;
-//        } else if(neighborhood==3) {
-//            if(neighborCount >= 78 && neighborCount<=89||
-//                neighborCount>=108&&neighborCount<=500) return -1;
-//            else return curr;
-//        }
-        return -1;
+        if(neighborhoodSumAvgs[1] >= .210 && neighborhoodSumAvgs[1] <= .220)
+            output = 1;
+        else if(neighborhoodSumAvgs[1] >= .350 && neighborhoodSumAvgs[1] <= .500)
+            output = 0;
+        else if(neighborhoodSumAvgs[1] >= .730 && neighborhoodSumAvgs[1] <= .850)
+            output = 0;
+
+        if(neighborhoodSumAvgs[0] >= .100 && neighborhoodSumAvgs[0] <= .280)
+            output = 0;
+        else if(neighborhoodSumAvgs[0] >= .430 && neighborhoodSumAvgs[0] <= .550)
+            output = 1;
+        else if(neighborhoodSumAvgs[0] >= .690 && neighborhoodSumAvgs[0] <= .780)
+            output = 0;
+
+        if(neighborhoodSumAvgs[0] >= .120 && neighborhoodSumAvgs[0] <= .150)
+            output = 1;
+
+        return output;
     }
 
+    /**
+     * Returns the count of all neighboring cells on
+     *
+     * @param neighbors the neighborhood to scan
+     * @param i cell row
+     * @param j cell column
+     * @return the count of neighbors on (1)
+     */
     private int getNeighborCount(List<Coordinate> neighbors, int i, int j) {
         int neighborCount = 0;
         for(Coordinate relativeNeighbor : neighbors) {
-            if( i + relativeNeighbor.getY() >= 0 && i + relativeNeighbor.getY() < imageArray.length &&
-                    j + relativeNeighbor.getX() >= 0 && j + relativeNeighbor.getX() < imageArray[0].length &&
-                    imageArray[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()] != -1) {
+            if(i + relativeNeighbor.getX() >= 0 && i + relativeNeighbor.getX() < imageArray.length &&
+                    j + relativeNeighbor.getY() >= 0 && j + relativeNeighbor.getY() < imageArray[0].length &&
+                    imageArray[i + relativeNeighbor.getX()][j + relativeNeighbor.getY()] != 0) {
                 //this neighbor is alive
                 neighborCount++;
             }
