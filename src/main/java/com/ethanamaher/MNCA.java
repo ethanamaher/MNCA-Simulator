@@ -210,22 +210,23 @@ public class MNCA {
     private int checkRules(double[] neighborhoodSumAvgs, int curr) {
         int output = curr;
 
-        if (neighborhoodSumAvgs[1] >= .210 && neighborhoodSumAvgs[1] <= .220)
-            output = 1;
-        else if (neighborhoodSumAvgs[1] >= .350 && neighborhoodSumAvgs[1] <= .500)
+
+        if (neighborhoodSumAvgs[0] >= .230 && neighborhoodSumAvgs[0] <= .320)
             output = 0;
-        else if (neighborhoodSumAvgs[1] >= .730 && neighborhoodSumAvgs[1] <= .850)
+        else if (neighborhoodSumAvgs[0] >= .470 && neighborhoodSumAvgs[0] <= .550)
+            output = 1;
+        else if (neighborhoodSumAvgs[0] >= .710 && neighborhoodSumAvgs[0] <= .800)
+            output = 1;
+
+        if (neighborhoodSumAvgs[1] >= .110 && neighborhoodSumAvgs[1] <= .260)
+            output = 0;
+        else if (neighborhoodSumAvgs[1] >= .370 && neighborhoodSumAvgs[1] <= .460)
+            output = 1;
+        else if (neighborhoodSumAvgs[1] >= .520 && neighborhoodSumAvgs[1] <= .650)
+            output = 0;
+        else if (neighborhoodSumAvgs[1] >= .730 && neighborhoodSumAvgs[1] <= .860)
             output = 0;
 
-        if (neighborhoodSumAvgs[0] >= .100 && neighborhoodSumAvgs[0] <= .280)
-            output = 0;
-        else if (neighborhoodSumAvgs[0] >= .430 && neighborhoodSumAvgs[0] <= .550)
-            output = 1;
-        else if (neighborhoodSumAvgs[0] >= .690 && neighborhoodSumAvgs[0] <= .780)
-            output = 0;
-
-        if (neighborhoodSumAvgs[0] >= .120 && neighborhoodSumAvgs[0] <= .150)
-            output = 1;
 
         return output;
     }
