@@ -248,7 +248,7 @@ public class MNCA {
         for(int i = 0; i < neighborhoodSumAvgs.length; i++) {
             for(double[] range : neighborhoodRules.get(i).keySet()) {
                 if(neighborhoodSumAvgs[i] >= range[0] && neighborhoodSumAvgs[i] <= range[1])
-                    output = (int) neighborhoodRules.get(i).get(range);
+                    output = neighborhoodRules.get(i).get(range);
             }
         }
 
