@@ -3,7 +3,7 @@ package com.ethanamaher;
 import javax.swing.*;
 import java.awt.*;
 
-public class VisualizerPanel extends JPanel implements Runnable{
+public class VisualizerPanel extends JPanel implements Runnable {
     private final MNCA MNCA;
     private final int FPS = 60;
 

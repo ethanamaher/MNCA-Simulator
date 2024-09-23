@@ -1,6 +1,7 @@
 package com.ethanamaher;
 
 import javax.swing.JFrame;
+
 public class VisualizerMain {
     public static void main(String[] args) {
         VisualizerFrame frame = new VisualizerFrame();
