@@ -57,8 +57,8 @@ public class MNCA {
      */
     synchronized protected void draw(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
-        for (int i = 0; i < imageArray.length; i++) {
-            for (int j = 0; j < imageArray[i].length; j++) {
+        for (int i = 0; i < imageArray.length; i++) { // row in array = y value in image
+            for (int j = 0; j < imageArray[i].length; j++) { // col in array = x value in image
                 if (imageArray[i][j] != 0) {
                     g2.setColor(Color.WHITE); // living cell
                     g2.drawLine(j, i, j, i);
@@ -74,6 +74,15 @@ public class MNCA {
     /**
      * converts the starting state of the automata to a 2d int[]
      * where -1 denotes dead cell and 1 denotes living cell
+     *
+     * TODO add multiple states by color
+     *
+     * argb = 0xffffffff
+     * (1111 1111) (1111 1111) (1111 1111) (1111 1111)
+     * alpha = argb >> 24
+     * red = argb >> 16
+     * blue
+     *
      *
      * @param image the image of the start state
      * @return 2d array of the start state
@@ -101,10 +110,12 @@ public class MNCA {
      * Converts an image to a list of coordinates that contain their relative distance
      * from the center coordinate
      *
+     * TODO add multiple states by color
+     *
      * @param image image of the neighborhood
      * @return list of relative coordinates
      */
-    private static List<Coordinate> convertTo2DRelativeCoordinates(BufferedImage image) {
+    private static List<Coordinate> convertToRelativeCoordinates(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
         final int height = image.getHeight();
@@ -145,9 +156,10 @@ public class MNCA {
                 neighborhoodImage = ImageIO.read(f);
                 if (neighborhoodImage == null) continue;
             } catch (IOException e) {
+                System.err.println("Neighborhood file not found");
                 throw new RuntimeException(e);
             }
-            neighborhoods.add(convertTo2DRelativeCoordinates(neighborhoodImage));
+            neighborhoods.add(convertToRelativeCoordinates(neighborhoodImage));
         }
         return neighborhoods;
     }
@@ -203,13 +215,16 @@ public class MNCA {
     /**
      * Checks the expected next state of i, j based on the rules of its neighborhoods
      *
+     * [[.230, .320], 0],
+     *  [.470, .550], 1],
+     *  [.710, .800], 1],
+     *
      * @param neighborhoodSumAvgs the percentage of neighbor cells on in each neighborhood
      * @param curr                state of current cell i, j
      * @return the expected next state of cell i, j
      */
     private int checkRules(double[] neighborhoodSumAvgs, int curr) {
         int output = curr;
-
 
         if (neighborhoodSumAvgs[0] >= .230 && neighborhoodSumAvgs[0] <= .320)
             output = 0;
