@@ -17,8 +17,8 @@ public class Interval {
     /**
      * Returns if a number is in this interval.
      * Inclusive bounds
-     * @param number
-     * @return
+     * @param number a number
+     * @return boolean whether the number is in the interval
      */
     public boolean contains(double number) {
         return number >= this.min && number <= this.max;
