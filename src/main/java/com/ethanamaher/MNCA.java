@@ -17,21 +17,20 @@ public class MNCA {
 
     private Dimension imageSize;
     private BufferedImage image;
-    private int[][] imageArray;
+    private final int[][] imageArray;
 
-    List<List<Coordinate>> neighborhoods;
+    private List<List<Coordinate>> neighborhoods;
 
     //stores intervals for neighborhood rules
-    List<double[]> neighborhoodRuleIntervals;
-    //stores the neighborhood an interval in neighborhoodRuleIntervals corresponds to
-    List<int[]> neighborhoodRulesMap;
+    private List<Interval> neighborhoodRuleIntervals;
 
     public MNCA() {
         System.out.println("INITIALIZED");
         try {
             image = ImageIO.read(new File(START_IMAGE_FILE));
         } catch (Exception e) {
-
+            System.err.println("File not found");
+            e.printStackTrace();
         }
         imageArray = convertTo2D(image);
         imageSize = new Dimension(image.getWidth(), image.getHeight());
@@ -165,8 +164,6 @@ public class MNCA {
     /**
      * Loads the neighborhoods from resources/neighborhoods
      * reads image file and converts to 2D coordinate array denoting the relative distances a neighbor would be from the center
-     *
-     * @return List<List < Coordinate>> list of coordinates for all neighborhoods
      */
     private void loadNeighborhoods() {
         neighborhoods = new ArrayList<>();
@@ -174,9 +171,7 @@ public class MNCA {
         File[] filesList = neighborhoodDirectory.listFiles();
         BufferedImage neighborhoodImage;
         try {
-            /**
-             * should add check for if file is an image
-             */
+            // add check for if file is an image
             for (File f : filesList) { // foreach neighborhood image file
                 neighborhoodImage = ImageIO.read(f);
                 if (neighborhoodImage == null) continue;
@@ -189,12 +184,9 @@ public class MNCA {
     }
 
     /**
-     * Loads neighborhood rules from its rules.txt file
+     * Loads neighborhood rules from its rules file
      * <p>
-     * stores them in list of hashmaps [min, max] -> nextState
      * is there a more efficient way to do this?
-     *
-     * @return
      */
     private void loadNeighborhoodRules() {
         File neighborhoodRulesFile = new File(NEIGHBORHOOD_RULES_FILE);
@@ -204,7 +196,6 @@ public class MNCA {
             // number of rules
             int n = fileReader.nextInt();
             neighborhoodRuleIntervals = new ArrayList<>();
-            neighborhoodRulesMap = new ArrayList<>();
             int neighborhood, nextState;
             double intervalMin, intervalMax;
             int curr = 0;
@@ -213,10 +204,9 @@ public class MNCA {
                 intervalMin = fileReader.nextDouble();
                 intervalMax = fileReader.nextDouble();
                 nextState = fileReader.nextInt();
-                double[] interval = new double[]{intervalMin, intervalMax};
-                int[] mapping = new int[]{neighborhood, nextState};
+
+                Interval interval = new Interval(neighborhood, intervalMin, intervalMax, nextState);
                 neighborhoodRuleIntervals.add(interval);
-                neighborhoodRulesMap.add(mapping);
                 curr++;
             }
 
@@ -241,6 +231,7 @@ public class MNCA {
             }
         }
 
+        // copy next iteration to imageArray
         for (int i = 0; i < nextIteration.length; i++) {
             System.arraycopy(nextIteration[i], 0, imageArray[i], 0, nextIteration[0].length);
         }
@@ -258,10 +249,10 @@ public class MNCA {
         int output = curr;
 
         for (int i = 0; i < neighborhoodSumAvgs.length; i++) {
-            for (int j = 0; j < neighborhoodRuleIntervals.size(); j++) {
-                int neighborhood = neighborhoodRulesMap.get(j)[0];
-                if (neighborhoodSumAvgs[neighborhood] >= neighborhoodRuleIntervals.get(j)[0] && neighborhoodSumAvgs[neighborhood] <= neighborhoodRuleIntervals.get(j)[1]) {
-                    output = neighborhoodRulesMap.get(j)[1] == 1 ? 1 : 0;
+            for (Interval currentInterval : neighborhoodRuleIntervals) {
+                int neighborhood = currentInterval.getNeighborhood();
+                if (currentInterval.contains(neighborhoodSumAvgs[neighborhood])) {
+                    output = currentInterval.getNextState();
                 }
 
             }
