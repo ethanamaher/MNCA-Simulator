@@ -18,7 +18,7 @@ public class MNCA {
 
     private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/example";
     private final String NEIGHBORHOOD_RULES_FILE = NEIGHBORHOOD_DIR + "/rules.txt";
-    private final String START_IMAGE_FILE = "src/main/resources/starts/example_start.png";
+    private final String START_IMAGE_FILE = "src/main/resources/starts/cow.png";
 
     private Dimension imageSize;
     private BufferedImage image;
@@ -262,6 +262,8 @@ public class MNCA {
 
     /**
      * Do an iteration over the cellular automata
+     * Is there a way to multithread this?? without calculating incorrect state values
+     *
      */
     private void step() {
         int numNeighborhoods = neighborhoods.size();
