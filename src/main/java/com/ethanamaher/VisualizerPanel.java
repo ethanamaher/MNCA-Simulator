@@ -15,9 +15,9 @@ public class VisualizerPanel extends JPanel {
         setOpaque(true);
         setBackground(Color.BLACK);
 
-        Timer timer = new Timer(20, ((e) -> {
-            MNCA.update();
+        Timer timer = new Timer(30, ((e) -> {
             repaint();
+            MNCA.update();
         }));
         timer.start();
 
