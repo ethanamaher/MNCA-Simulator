@@ -4,7 +4,7 @@ MNCA's are the next step of traditional cellular automata, for example, Conway's
 
 This is in Java and it does get pretty slow if your neighborhoods are too big or if you have too many so best to keep them pretty small.
 
-https://github.com/user-attachments/assets/1fb2721e-0e35-4aab-ad91-f75671d6951f
+https://github.com/user-attachments/assets/6fb86c0b-4fba-40eb-b880-6b38d2c93dea
 
 # Inspired by:
 
