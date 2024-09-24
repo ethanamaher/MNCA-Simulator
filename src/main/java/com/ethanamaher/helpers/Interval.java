@@ -1,4 +1,4 @@
-package com.ethanamaher;
+package com.ethanamaher.helpers;
 
 public class Interval {
     private double min, max;
