@@ -11,21 +11,25 @@ import java.util.Scanner;
 
 public class MNCA {
 
-    private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/test";
+    private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/example";
+    private final String NEIGHBORHOOD_RULES_FILE = NEIGHBORHOOD_DIR + "/rules.txt";
+    private final String START_IMAGE_FILE = "src/main/resources/starts/example_start.png";
+
     private Dimension imageSize;
     private BufferedImage image;
     private int[][] imageArray;
-    boolean needsRedraw;
+
     List<List<Coordinate>> neighborhoods;
+
+    //stores intervals for neighborhood rules
     List<double[]> neighborhoodRuleIntervals;
-    List<Integer> neighborhoodRulesMap;
-    List<Boolean> neighborhoodRuleStates;
+    //stores the neighborhood an interval in neighborhoodRuleIntervals corresponds to
+    List<int[]> neighborhoodRulesMap;
 
     public MNCA() {
         System.out.println("INITIALIZED");
-        needsRedraw = true;
         try {
-            image = ImageIO.read(new File("src/main/resources/starts/start-0001.png"));
+            image = ImageIO.read(new File(START_IMAGE_FILE));
         } catch (Exception e) {
 
         }
@@ -39,11 +43,15 @@ public class MNCA {
 
     private void fillRandomly(Dimension imageSize) {
         this.imageSize = imageSize;
-        for(int i = 0; i < imageArray.length; i++) {
-            for(int j = 0; j < imageArray[i].length; j++) {
-                if(imageArray[i][j]==1) {
+        for (int i = 0; i < imageArray.length; i++) {
+            for (int j = 0; j < imageArray[i].length; j++) {
+                if (imageArray[i][j] == 1) {
+                    /*
+                    Randomly fill colored space in image
+                    to keep it from being just a big block of cells
+                     */
                     double chance = Math.random();
-                    if (chance <= .5) imageArray[i][j] = 1;
+                    if (chance <= .72) imageArray[i][j] = 1;
                     else imageArray[i][j] = 0;
                 }
             }
@@ -141,7 +149,7 @@ public class MNCA {
             if (set == 1) {
                 Coordinate relative = new Coordinate(col - width / 2, row - height / 2);
 
-                if (!(relative.getX() == 0 && relative.getY() == 0)) {
+                if (!(relative.getX() == 0 && relative.getY() == 0)) { // dont add the cell to its own neighbors list
                     result.add(relative);
                 }
             }
@@ -155,7 +163,7 @@ public class MNCA {
     }
 
     /**
-     * Loads the neighborhoods from resources.neighborhoods
+     * Loads the neighborhoods from resources/neighborhoods
      * reads image file and converts to 2D coordinate array denoting the relative distances a neighbor would be from the center
      *
      * @return List<List < Coordinate>> list of coordinates for all neighborhoods
@@ -166,10 +174,12 @@ public class MNCA {
         File[] filesList = neighborhoodDirectory.listFiles();
         BufferedImage neighborhoodImage;
         try {
+            /**
+             * should add check for if file is an image
+             */
             for (File f : filesList) { // foreach neighborhood image file
                 neighborhoodImage = ImageIO.read(f);
                 if (neighborhoodImage == null) continue;
-
                 neighborhoods.add(convertToRelativeCoordinates(neighborhoodImage));
             }
         } catch (IOException e) {
@@ -180,43 +190,35 @@ public class MNCA {
 
     /**
      * Loads neighborhood rules from its rules.txt file
-     *
+     * <p>
      * stores them in list of hashmaps [min, max] -> nextState
      * is there a more efficient way to do this?
      *
      * @return
      */
     private void loadNeighborhoodRules() {
-        File neighborhoodRulesFile = new File(NEIGHBORHOOD_DIR + "/rules1.txt");
+        File neighborhoodRulesFile = new File(NEIGHBORHOOD_RULES_FILE);
         Scanner fileReader;
         try {
             fileReader = new Scanner(new FileInputStream(neighborhoodRulesFile));
+            // number of rules
             int n = fileReader.nextInt();
             neighborhoodRuleIntervals = new ArrayList<>();
             neighborhoodRulesMap = new ArrayList<>();
-            neighborhoodRuleStates = new ArrayList<>();
+            int neighborhood, nextState;
+            double intervalMin, intervalMax;
             int curr = 0;
             while (curr < n) {
-                int rulec = fileReader.nextInt();
-                int neighborhood = fileReader.nextInt();
-                for (int i = 0; i < rulec; i++) {
-                    double intervalMin = fileReader.nextDouble();
-                    double intervalMax = fileReader.nextDouble();
-                    int nextState = fileReader.nextInt();
-                    double[] interval = new double[]{intervalMin, intervalMax};
-                    neighborhoodRuleIntervals.add(interval);
-                    neighborhoodRulesMap.add(neighborhood);
-                    neighborhoodRuleStates.add(nextState==1);
-                }
+                neighborhood = fileReader.nextInt();
+                intervalMin = fileReader.nextDouble();
+                intervalMax = fileReader.nextDouble();
+                nextState = fileReader.nextInt();
+                double[] interval = new double[]{intervalMin, intervalMax};
+                int[] mapping = new int[]{neighborhood, nextState};
+                neighborhoodRuleIntervals.add(interval);
+                neighborhoodRulesMap.add(mapping);
                 curr++;
             }
-
-//            for(HashMap<double[], Integer> hm : neighborhoodRules) {
-//                for(double[] key : hm.keySet()) {
-//                    System.out.printf("[%.3f, %.3f] %d%n", key[0], key[1], hm.get(key));
-//                }
-//                System.out.println();
-//            }
 
         } catch (IOException e) {
             System.out.println("NO RULES FILE FOUND");
@@ -227,7 +229,7 @@ public class MNCA {
      * Do an iteration over the cellular automata
      */
     private void step() {
-        int[][] nextIterationArray = new int[imageArray.length][imageArray[0].length];
+        int[][] nextIteration = new int[imageArray.length][imageArray[0].length];
         for (int i = 0; i < imageArray.length; i++) {
             for (int j = 0; j < imageArray[i].length; j++) {
                 int curr = imageArray[i][j];
@@ -235,25 +237,18 @@ public class MNCA {
                 for (int k = 0; k < neighborhoods.size(); k++) {
                     neighborhoodSums[k] = (double) getNeighborCount(neighborhoods.get(k), i, j) / neighborhoods.get(k).size();
                 }
-                nextIterationArray[i][j] = checkRules(neighborhoodSums, curr);
-
+                nextIteration[i][j] = checkRules(neighborhoodSums, curr);
             }
         }
 
-        for (int i = 0; i < imageArray.length; i++) {
-            int[] arr = nextIterationArray[i];
-            int aLength = nextIterationArray[0].length;
-            imageArray[i] = new int[aLength];
-            System.arraycopy(arr, 0, imageArray[i], 0, aLength);
+        for (int i = 0; i < nextIteration.length; i++) {
+            System.arraycopy(nextIteration[i], 0, imageArray[i], 0, nextIteration[0].length);
         }
     }
 
     /**
      * Checks the expected next state of i, j based on the rules of its neighborhoods
      * <p>
-     * [[.230, .320], 0],
-     * [.470, .550], 1],
-     * [.710, .800], 1],
      *
      * @param neighborhoodSumAvgs the percentage of neighbor cells on in each neighborhood
      * @param curr                state of current cell i, j
@@ -262,18 +257,15 @@ public class MNCA {
     private int checkRules(double[] neighborhoodSumAvgs, int curr) {
         int output = curr;
 
-        for(int i = 0; i < neighborhoodSumAvgs.length; i++) {
-            for(int j = 0; j < neighborhoodRuleIntervals.size(); j++) {
-                double[] range = neighborhoodRuleIntervals.get(j);
-                int neighborhood = neighborhoodRulesMap.get(j);
-                if(neighborhoodSumAvgs[neighborhood] >= range[0] && neighborhoodSumAvgs[neighborhood] <= range[1]) {
-                    output = neighborhoodRuleStates.get(j) ? 1 : 0;
+        for (int i = 0; i < neighborhoodSumAvgs.length; i++) {
+            for (int j = 0; j < neighborhoodRuleIntervals.size(); j++) {
+                int neighborhood = neighborhoodRulesMap.get(j)[0];
+                if (neighborhoodSumAvgs[neighborhood] >= neighborhoodRuleIntervals.get(j)[0] && neighborhoodSumAvgs[neighborhood] <= neighborhoodRuleIntervals.get(j)[1]) {
+                    output = neighborhoodRulesMap.get(j)[1] == 1 ? 1 : 0;
                 }
 
             }
         }
-
-
         return output;
     }
 
@@ -288,9 +280,9 @@ public class MNCA {
     private int getNeighborCount(List<Coordinate> neighbors, int i, int j) {
         int neighborCount = 0;
         for (Coordinate relativeNeighbor : neighbors) {
-            if (i + relativeNeighbor.getX() >= 0 && i + relativeNeighbor.getX() < imageArray.length &&
-                    j + relativeNeighbor.getY() >= 0 && j + relativeNeighbor.getY() < imageArray[0].length &&
-                    imageArray[i + relativeNeighbor.getX()][j + relativeNeighbor.getY()] != 0) {
+            if (i + relativeNeighbor.getY() >= 0 && i + relativeNeighbor.getY() < imageArray.length &&
+                    j + relativeNeighbor.getX() >= 0 && j + relativeNeighbor.getX() < imageArray[0].length &&
+                    imageArray[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()] != 0) {
                 //this neighbor is alive
                 neighborCount++;
             }
