@@ -6,6 +6,7 @@ public class Cell {
 
     public Cell(int state) {
         this.state = state;
+        this.nextState = state;
     }
 
     public boolean isAlive() {
@@ -16,12 +17,8 @@ public class Cell {
         return this.state;
     }
 
-    public void setAlive() {
-        this.state = 1;
-    }
-
-    public void setDead() {
-        this.state = 0;
+    public void setState(int state) {
+        this.state = state;
     }
 
     public void setNextState(int nextState) {

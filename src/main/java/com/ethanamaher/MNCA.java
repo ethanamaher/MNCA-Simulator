@@ -18,7 +18,7 @@ public class MNCA {
 
     private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/example";
     private final String NEIGHBORHOOD_RULES_FILE = NEIGHBORHOOD_DIR + "/rules.txt";
-    private final String START_IMAGE_FILE = "src/main/resources/starts/cow.png";
+    private final String START_IMAGE_FILE = "src/main/resources/starts/randomfilltest.png";
 
     private Dimension imageSize;
     private BufferedImage image;
@@ -39,10 +39,10 @@ public class MNCA {
             System.err.println("Image file not found at: " + START_IMAGE_FILE);
         }
         imageArray = convertTo2D(image);
+        fillRandomly(imageSize);
         this.rows = imageArray.length;
         this.cols = imageArray[0].length;
         imageSize = new Dimension(image.getWidth(), image.getHeight());
-        fillRandomly(imageSize);
 
         loadNeighborhoods();
         loadNeighborhoodRules();
@@ -58,8 +58,10 @@ public class MNCA {
                     to keep it from being just a big block of cells
                      */
                     double chance = Math.random();
-                    if (chance <= .72) imageArray[i][j].setAlive();
-                    else imageArray[i][j].setDead();
+                    // 70% chance of starting alive if image has it alive
+                    // modify this so it can work if no image is provided
+                    if (chance <= .72) imageArray[i][j].setState(1);
+                    else imageArray[i][j].setState(0);
                 }
             }
         }
@@ -83,20 +85,16 @@ public class MNCA {
     /**
      * draw the current state
      *
+     * NOT WORKING
+     *
      * @param g Graphics
      */
     synchronized protected void draw(Graphics g) {
-
         Graphics2D g2 = (Graphics2D) g;
         for (int i = 0; i < rows; i++) { // row in array = y value in image
             for (int j = 0; j < cols; j++) { // col in array = x value in image
-                if (imageArray[i][j].isAlive()) {
-                    g2.setColor(Color.WHITE); // living cell
-                    g2.drawLine(j, i, j, i);
-                } else {
-                    g2.setColor(Color.BLACK); // dead cell
-                    g2.drawLine(j, i, j, i);
-                }
+                g2.setColor(imageArray[i][j].isAlive() ? Color.WHITE : Color.BLACK);
+                g2.drawLine(j, i, j, i);
             }
         }
         g2.dispose();
