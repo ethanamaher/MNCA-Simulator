@@ -1,35 +1,46 @@
 package com.ethanamaher;
 
+import com.ethanamaher.helpers.Cell;
+import com.ethanamaher.helpers.Coordinate;
+import com.ethanamaher.helpers.Interval;
+
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.*;
+import java.util.InputMismatchException;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Scanner;
 
 public class MNCA {
 
-    private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/test";
+    private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/example";
+    private final String NEIGHBORHOOD_RULES_FILE = NEIGHBORHOOD_DIR + "/rules.txt";
+    private final String START_IMAGE_FILE = "src/main/resources/starts/example_start.png";
+
     private Dimension imageSize;
     private BufferedImage image;
-    private int[][] imageArray;
-    boolean needsRedraw;
-    List<List<Coordinate>> neighborhoods;
-    List<double[]> neighborhoodRuleIntervals;
-    List<Integer> neighborhoodRulesMap;
-    List<Boolean> neighborhoodRuleStates;
+    private final Cell[][] imageArray;
+    private int rows;
+    private int cols;
+
+    private List<List<Coordinate>> neighborhoods;
+
+    //stores intervals for neighborhood rules
+    private List<Interval> neighborhoodRuleIntervals;
 
     public MNCA() {
         System.out.println("INITIALIZED");
-        needsRedraw = true;
         try {
-            image = ImageIO.read(new File("src/main/resources/starts/start-0001.png"));
-        } catch (Exception e) {
-
+            image = ImageIO.read(new File(START_IMAGE_FILE));
+        } catch (IOException e) {
+            System.err.println("Image file not found at: " + START_IMAGE_FILE);
         }
         imageArray = convertTo2D(image);
+        this.rows = imageArray.length;
+        this.cols = imageArray[0].length;
         imageSize = new Dimension(image.getWidth(), image.getHeight());
         fillRandomly(imageSize);
 
@@ -39,12 +50,16 @@ public class MNCA {
 
     private void fillRandomly(Dimension imageSize) {
         this.imageSize = imageSize;
-        for(int i = 0; i < imageArray.length; i++) {
-            for(int j = 0; j < imageArray[i].length; j++) {
-                if(imageArray[i][j]==1) {
+        for (int i = 0; i < imageArray.length; i++) {
+            for (int j = 0; j < imageArray[i].length; j++) {
+                if (imageArray[i][j].isAlive()) {
+                    /*
+                    Randomly fill colored space in image
+                    to keep it from being just a big block of cells
+                     */
                     double chance = Math.random();
-                    if (chance <= .5) imageArray[i][j] = 1;
-                    else imageArray[i][j] = 0;
+                    if (chance <= .72) imageArray[i][j].setAlive();
+                    else imageArray[i][j].setDead();
                 }
             }
         }
@@ -71,10 +86,11 @@ public class MNCA {
      * @param g Graphics
      */
     synchronized protected void draw(Graphics g) {
+
         Graphics2D g2 = (Graphics2D) g;
-        for (int i = 0; i < imageArray.length; i++) { // row in array = y value in image
-            for (int j = 0; j < imageArray[i].length; j++) { // col in array = x value in image
-                if (imageArray[i][j] != 0) {
+        for (int i = 0; i < rows; i++) { // row in array = y value in image
+            for (int j = 0; j < cols; j++) { // col in array = x value in image
+                if (imageArray[i][j].isAlive()) {
                     g2.setColor(Color.WHITE); // living cell
                     g2.drawLine(j, i, j, i);
                 } else {
@@ -101,15 +117,15 @@ public class MNCA {
      * @param image the image of the start state
      * @return 2d array of the start state
      */
-    private static int[][] convertTo2D(BufferedImage image) {
+    private static Cell[][] convertTo2D(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
         final int height = image.getHeight();
-        int[][] result = new int[height][width];
+        Cell[][] result = new Cell[height][width];
 
         for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel++) {
-            int set = pixels[pixel] + 1;
-            result[row][col] = set;
+            int state = pixels[pixel] + 1;
+            result[row][col] = new Cell(state);
             col++;
             if (col == width) {
                 col = 0;
@@ -133,93 +149,114 @@ public class MNCA {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
         final int height = image.getHeight();
-        List<Coordinate> result = new ArrayList<>();
+        List<Coordinate> result = new ArrayList<>(pixels.length);
 
-        for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel++) {
-            int set = pixels[pixel] + 1;
+        int centerX = width / 2;
+        int centerY = height / 2;
 
-            if (set == 1) {
-                Coordinate relative = new Coordinate(col - width / 2, row - height / 2);
+        for (int pixelIndex = 0, row = 0, col = 0; pixelIndex < pixels.length; pixelIndex++) {
+            boolean isSet = pixels[pixelIndex] == 0;
 
-                if (!(relative.getX() == 0 && relative.getY() == 0)) {
-                    result.add(relative);
+            if (isSet) {
+                int relativeX = col - centerX;
+                int relativeY = row - centerY;
+
+                // Avoid adding the center coordinate (0, 0)
+                if (relativeX != 0 || relativeY != 0) {
+                    result.add(new Coordinate(relativeX, relativeY));
                 }
             }
+
+            // Update column and row indices
             col++;
             if (col == width) {
                 col = 0;
                 row++;
             }
         }
+
         return result;
     }
 
     /**
-     * Loads the neighborhoods from resources.neighborhoods
+     * Loads the neighborhoods from resources/neighborhoods
      * reads image file and converts to 2D coordinate array denoting the relative distances a neighbor would be from the center
-     *
-     * @return List<List < Coordinate>> list of coordinates for all neighborhoods
      */
     private void loadNeighborhoods() {
         neighborhoods = new ArrayList<>();
         File neighborhoodDirectory = new File(NEIGHBORHOOD_DIR);
-        File[] filesList = neighborhoodDirectory.listFiles();
-        BufferedImage neighborhoodImage;
-        try {
-            for (File f : filesList) { // foreach neighborhood image file
-                neighborhoodImage = ImageIO.read(f);
-                if (neighborhoodImage == null) continue;
 
-                neighborhoods.add(convertToRelativeCoordinates(neighborhoodImage));
-            }
-        } catch (IOException e) {
-            System.err.println("Neighborhood file not found");
-            throw new RuntimeException(e);
+        // Ensure the directory exists and is valid
+        if (!neighborhoodDirectory.exists() || !neighborhoodDirectory.isDirectory()) {
+            System.err.println("Error: Neighborhood directory not found or invalid: " + NEIGHBORHOOD_DIR);
+            return;
         }
+
+        File[] filesList = neighborhoodDirectory.listFiles();
+        if (filesList == null || filesList.length == 0) {
+            System.err.println("Error: No files found in neighborhood directory: " + NEIGHBORHOOD_DIR);
+            return;
+        }
+
+        // Loop through each file and process image files
+        for (File file : filesList) {
+            if (!file.isFile() || !isImageFile(file)) {
+                continue; // Skip non-image or invalid files
+            }
+
+            try {
+                BufferedImage neighborhoodImage = ImageIO.read(file);
+                if (neighborhoodImage != null) {
+                    neighborhoods.add(convertToRelativeCoordinates(neighborhoodImage));
+                }
+            } catch (IOException e) {
+                System.err.println("Error: Unable to read neighborhood image: " + file.getName());
+                throw new RuntimeException(e);
+            }
+        }
+
+        System.out.println("Successfully loaded " + neighborhoods.size() + " neighborhoods.");
+    }
+
+    // Helper method to check if a file is an image
+    private boolean isImageFile(File file) {
+        String fileName = file.getName().toLowerCase();
+        return fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".bmp");
     }
 
     /**
-     * Loads neighborhood rules from its rules.txt file
-     *
-     * stores them in list of hashmaps [min, max] -> nextState
+     * Loads neighborhood rules from its rules file
+     * <p>
      * is there a more efficient way to do this?
-     *
-     * @return
      */
     private void loadNeighborhoodRules() {
-        File neighborhoodRulesFile = new File(NEIGHBORHOOD_DIR + "/rules1.txt");
-        Scanner fileReader;
-        try {
-            fileReader = new Scanner(new FileInputStream(neighborhoodRulesFile));
-            int n = fileReader.nextInt();
-            neighborhoodRuleIntervals = new ArrayList<>();
-            neighborhoodRulesMap = new ArrayList<>();
-            neighborhoodRuleStates = new ArrayList<>();
-            int curr = 0;
-            while (curr < n) {
-                int rulec = fileReader.nextInt();
+        File neighborhoodRulesFile = new File(NEIGHBORHOOD_RULES_FILE);
+        // Ensure file exists before attempting to read
+        if (!neighborhoodRulesFile.exists()) {
+            System.out.println("Error: Rules file not found: " + NEIGHBORHOOD_RULES_FILE);
+            return;
+        }
+
+        try (Scanner fileReader = new Scanner(new FileInputStream(neighborhoodRulesFile))) {
+            int numberOfRules = fileReader.nextInt();
+            neighborhoodRuleIntervals = new ArrayList<>(numberOfRules);
+
+            for(int i = 0; i < numberOfRules; i++) {
                 int neighborhood = fileReader.nextInt();
-                for (int i = 0; i < rulec; i++) {
-                    double intervalMin = fileReader.nextDouble();
-                    double intervalMax = fileReader.nextDouble();
-                    int nextState = fileReader.nextInt();
-                    double[] interval = new double[]{intervalMin, intervalMax};
-                    neighborhoodRuleIntervals.add(interval);
-                    neighborhoodRulesMap.add(neighborhood);
-                    neighborhoodRuleStates.add(nextState==1);
-                }
-                curr++;
+                double intervalMin = fileReader.nextDouble();
+                double intervalMax = fileReader.nextDouble();
+                int nextState = fileReader.nextInt();
+
+                // Create and store the interval object
+                Interval interval = new Interval(neighborhood, intervalMin, intervalMax, nextState);
+                neighborhoodRuleIntervals.add(interval);
             }
+            System.out.println("Successfully loaded " + numberOfRules + " neighborhood rules.");
 
-//            for(HashMap<double[], Integer> hm : neighborhoodRules) {
-//                for(double[] key : hm.keySet()) {
-//                    System.out.printf("[%.3f, %.3f] %d%n", key[0], key[1], hm.get(key));
-//                }
-//                System.out.println();
-//            }
-
-        } catch (IOException e) {
-            System.out.println("NO RULES FILE FOUND");
+        } catch (FileNotFoundException e) {
+            System.out.println("Error: Unable to find rules file: " + NEIGHBORHOOD_RULES_FILE);
+        } catch (InputMismatchException e) {
+            System.out.println("Error: Malformed data in rules file.");
         }
     }
 
@@ -227,53 +264,56 @@ public class MNCA {
      * Do an iteration over the cellular automata
      */
     private void step() {
-        int[][] nextIterationArray = new int[imageArray.length][imageArray[0].length];
-        for (int i = 0; i < imageArray.length; i++) {
-            for (int j = 0; j < imageArray[i].length; j++) {
-                int curr = imageArray[i][j];
-                double[] neighborhoodSums = new double[neighborhoods.size()];
-                for (int k = 0; k < neighborhoods.size(); k++) {
-                    neighborhoodSums[k] = (double) getNeighborCount(neighborhoods.get(k), i, j) / neighborhoods.get(k).size();
-                }
-                nextIterationArray[i][j] = checkRules(neighborhoodSums, curr);
+        int numNeighborhoods = neighborhoods.size();
 
+        // Cache neighborhood sizes to avoid repeated calls inside loops
+        double[] neighborhoodSizes = new double[numNeighborhoods];
+        for (int k = 0; k < numNeighborhoods; k++) {
+            neighborhoodSizes[k] = neighborhoods.get(k).size();
+        }
+
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                Cell currentCell = imageArray[i][j];
+                double[] neighborhoodSums = new double[numNeighborhoods];
+
+                for (int k = 0; k < numNeighborhoods; k++) {
+                    int neighborCount = getNeighborCount(neighborhoods.get(k), i, j);
+                    neighborhoodSums[k] = (double) neighborCount / neighborhoodSizes[k];
+                }
+
+                currentCell.setNextState(checkRules(neighborhoodSums, currentCell));
             }
         }
 
-        for (int i = 0; i < imageArray.length; i++) {
-            int[] arr = nextIterationArray[i];
-            int aLength = nextIterationArray[0].length;
-            imageArray[i] = new int[aLength];
-            System.arraycopy(arr, 0, imageArray[i], 0, aLength);
+        for(Cell[] cells : imageArray) {
+            for(Cell c : cells) {
+                c.step();
+            }
         }
     }
 
     /**
      * Checks the expected next state of i, j based on the rules of its neighborhoods
      * <p>
-     * [[.230, .320], 0],
-     * [.470, .550], 1],
-     * [.710, .800], 1],
      *
-     * @param neighborhoodSumAvgs the percentage of neighbor cells on in each neighborhood
-     * @param curr                state of current cell i, j
+     * @param neighborhoodSumAverages the percentage of neighbor cells on in each neighborhood
+     * @param currentCell             state of current cell i, j
      * @return the expected next state of cell i, j
      */
-    private int checkRules(double[] neighborhoodSumAvgs, int curr) {
-        int output = curr;
+    private int checkRules(double[] neighborhoodSumAverages, Cell currentCell) {
+        int output = currentCell.getState();
 
-        for(int i = 0; i < neighborhoodSumAvgs.length; i++) {
-            for(int j = 0; j < neighborhoodRuleIntervals.size(); j++) {
-                double[] range = neighborhoodRuleIntervals.get(j);
-                int neighborhood = neighborhoodRulesMap.get(j);
-                if(neighborhoodSumAvgs[neighborhood] >= range[0] && neighborhoodSumAvgs[neighborhood] <= range[1]) {
-                    output = neighborhoodRuleStates.get(j) ? 1 : 0;
+        for (int i = 0; i < neighborhoodSumAverages.length; i++) {
+            for (Interval currentInterval : neighborhoodRuleIntervals) {
+                int neighborhood = currentInterval.getNeighborhood();
+                if (currentInterval.contains(neighborhoodSumAverages[neighborhood])) {
+                    output = currentInterval.getNextState();
                 }
 
             }
         }
-
-
         return output;
     }
 
@@ -288,9 +328,9 @@ public class MNCA {
     private int getNeighborCount(List<Coordinate> neighbors, int i, int j) {
         int neighborCount = 0;
         for (Coordinate relativeNeighbor : neighbors) {
-            if (i + relativeNeighbor.getX() >= 0 && i + relativeNeighbor.getX() < imageArray.length &&
-                    j + relativeNeighbor.getY() >= 0 && j + relativeNeighbor.getY() < imageArray[0].length &&
-                    imageArray[i + relativeNeighbor.getX()][j + relativeNeighbor.getY()] != 0) {
+            if (i + relativeNeighbor.getY() >= 0 && i + relativeNeighbor.getY() < rows &&
+                    j + relativeNeighbor.getX() >= 0 && j + relativeNeighbor.getX() < cols &&
+                    imageArray[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()].isAlive()) {
                 //this neighbor is alive
                 neighborCount++;
             }
