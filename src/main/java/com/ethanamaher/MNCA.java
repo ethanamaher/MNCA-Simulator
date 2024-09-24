@@ -5,7 +5,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.*;
-import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -13,26 +12,42 @@ import java.util.Scanner;
 public class MNCA {
 
     private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/test";
-    private final Dimension imageSize;
-    private final BufferedImage image;
+    private Dimension imageSize;
+    private BufferedImage image;
     private int[][] imageArray;
     boolean needsRedraw;
     List<List<Coordinate>> neighborhoods;
-    List<HashMap<double[], Integer>> neighborhoodRules;
+    List<double[]> neighborhoodRuleIntervals;
+    List<Integer> neighborhoodRulesMap;
+    List<Boolean> neighborhoodRuleStates;
 
     public MNCA() {
         System.out.println("INITIALIZED");
         needsRedraw = true;
         try {
-            // best to keep start states smaller than 800x600, calculation slows down a bit
             image = ImageIO.read(new File("src/main/resources/starts/start-0001.png"));
         } catch (Exception e) {
-            throw new RuntimeException(e);
+
         }
-        imageSize = new Dimension(image.getWidth(), image.getHeight());
         imageArray = convertTo2D(image);
-        neighborhoods = loadNeighborhoods();
-        neighborhoodRules = loadNeighborhoodRules();
+        imageSize = new Dimension(image.getWidth(), image.getHeight());
+        fillRandomly(imageSize);
+
+        loadNeighborhoods();
+        loadNeighborhoodRules();
+    }
+
+    private void fillRandomly(Dimension imageSize) {
+        this.imageSize = imageSize;
+        for(int i = 0; i < imageArray.length; i++) {
+            for(int j = 0; j < imageArray[i].length; j++) {
+                if(imageArray[i][j]==1) {
+                    double chance = Math.random();
+                    if (chance <= .5) imageArray[i][j] = 1;
+                    else imageArray[i][j] = 0;
+                }
+            }
+        }
     }
 
     /**
@@ -145,48 +160,53 @@ public class MNCA {
      *
      * @return List<List < Coordinate>> list of coordinates for all neighborhoods
      */
-    private List<List<Coordinate>> loadNeighborhoods() {
-        List<List<Coordinate>> neighborhoods = new ArrayList<>();
+    private void loadNeighborhoods() {
+        neighborhoods = new ArrayList<>();
         File neighborhoodDirectory = new File(NEIGHBORHOOD_DIR);
         File[] filesList = neighborhoodDirectory.listFiles();
         BufferedImage neighborhoodImage;
         try {
-            for (File f : filesList) {
+            for (File f : filesList) { // foreach neighborhood image file
                 neighborhoodImage = ImageIO.read(f);
                 if (neighborhoodImage == null) continue;
+
                 neighborhoods.add(convertToRelativeCoordinates(neighborhoodImage));
             }
         } catch (IOException e) {
             System.err.println("Neighborhood file not found");
             throw new RuntimeException(e);
         }
-        return neighborhoods;
     }
 
     /**
-     * Loads neighbordhood rules from its rules.txt file
+     * Loads neighborhood rules from its rules.txt file
      *
      * stores them in list of hashmaps [min, max] -> nextState
      * is there a more efficient way to do this?
      *
      * @return
      */
-    private List<HashMap<double[], Integer>> loadNeighborhoodRules() {
-        neighborhoodRules = new ArrayList<>();
-        File neighborhoodRulesFile = new File(NEIGHBORHOOD_DIR + "/rules.txt");
+    private void loadNeighborhoodRules() {
+        File neighborhoodRulesFile = new File(NEIGHBORHOOD_DIR + "/rules1.txt");
         Scanner fileReader;
         try {
             fileReader = new Scanner(new FileInputStream(neighborhoodRulesFile));
             int n = fileReader.nextInt();
+            neighborhoodRuleIntervals = new ArrayList<>();
+            neighborhoodRulesMap = new ArrayList<>();
+            neighborhoodRuleStates = new ArrayList<>();
             int curr = 0;
             while (curr < n) {
                 int rulec = fileReader.nextInt();
-                neighborhoodRules.add(new HashMap<>());
+                int neighborhood = fileReader.nextInt();
                 for (int i = 0; i < rulec; i++) {
                     double intervalMin = fileReader.nextDouble();
                     double intervalMax = fileReader.nextDouble();
                     int nextState = fileReader.nextInt();
-                    neighborhoodRules.get(curr).put(new double[]{intervalMin, intervalMax}, nextState);
+                    double[] interval = new double[]{intervalMin, intervalMax};
+                    neighborhoodRuleIntervals.add(interval);
+                    neighborhoodRulesMap.add(neighborhood);
+                    neighborhoodRuleStates.add(nextState==1);
                 }
                 curr++;
             }
@@ -198,11 +218,9 @@ public class MNCA {
 //                System.out.println();
 //            }
 
-            return neighborhoodRules;
         } catch (IOException e) {
             System.out.println("NO RULES FILE FOUND");
         }
-        return null;
     }
 
     /**
@@ -215,8 +233,7 @@ public class MNCA {
                 int curr = imageArray[i][j];
                 double[] neighborhoodSums = new double[neighborhoods.size()];
                 for (int k = 0; k < neighborhoods.size(); k++) {
-                    int neighborCount = getNeighborCount(neighborhoods.get(k), i, j);
-                    neighborhoodSums[k] = (double) neighborCount / neighborhoods.get(k).size();
+                    neighborhoodSums[k] = (double) getNeighborCount(neighborhoods.get(k), i, j) / neighborhoods.get(k).size();
                 }
                 nextIterationArray[i][j] = checkRules(neighborhoodSums, curr);
 
@@ -246,9 +263,13 @@ public class MNCA {
         int output = curr;
 
         for(int i = 0; i < neighborhoodSumAvgs.length; i++) {
-            for(double[] range : neighborhoodRules.get(i).keySet()) {
-                if(neighborhoodSumAvgs[i] >= range[0] && neighborhoodSumAvgs[i] <= range[1])
-                    output = neighborhoodRules.get(i).get(range);
+            for(int j = 0; j < neighborhoodRuleIntervals.size(); j++) {
+                double[] range = neighborhoodRuleIntervals.get(j);
+                int neighborhood = neighborhoodRulesMap.get(j);
+                if(neighborhoodSumAvgs[neighborhood] >= range[0] && neighborhoodSumAvgs[neighborhood] <= range[1]) {
+                    output = neighborhoodRuleStates.get(j) ? 1 : 0;
+                }
+
             }
         }
 
