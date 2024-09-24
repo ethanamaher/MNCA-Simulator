@@ -2,13 +2,9 @@
 
 MNCA's are the next step of traditional cellular automata, for example, Conway's Game of Life. By using multiple neighborhoods instead of just one, there is an huge increase in the diversity of states that can emerge.
 
-Because this is in Java it's not very fast when the images become really big so try not to go above 800x600px and more than 5 neighborhoods.
+This is in Java and it does get pretty slow if your neighborhoods are too big or if you have too many so best to keep them pretty small.
 
-
-
-https://github.com/user-attachments/assets/5b006d1e-f81e-4fad-86f7-d37ee3ec5efb
-
-
+https://github.com/user-attachments/assets/853f09ae-27c0-42f3-8371-05c893323139
 
 # Inspired by:
 
