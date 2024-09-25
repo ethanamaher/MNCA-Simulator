@@ -8,16 +8,30 @@ public class VisualizerPanel extends JPanel {
 
 
     public VisualizerPanel() {
-        setLayout(new BorderLayout(2, 2));
         setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY, 2));
         MNCA = new MNCA();
         setPreferredSize(MNCA.getImageSize());
         setOpaque(true);
         setBackground(Color.BLACK);
 
-        Timer timer = new Timer(30, ((e) -> {
-            repaint();
-            MNCA.update();
+        Timer timer = new Timer(25, ((e) -> {
+            //thread for drawing displayedImage
+            Thread paintThread = (new Thread(this::repaint));
+            paintThread.start();
+//            repaint();
+
+            //thread for calculations on bufferedImage
+            Thread updateThread = (new Thread(MNCA::update));
+            updateThread.start();
+
+            // wait for calculations to complete before continuing
+            try {
+                updateThread.join();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
+//            MNCA.update();
         }));
         timer.start();
 
