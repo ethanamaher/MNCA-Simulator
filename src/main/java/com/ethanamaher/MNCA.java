@@ -54,7 +54,7 @@ public class MNCA {
     private void fillRandomly(Cell[][] image) {
         for (int i = 0; i < image.length; i++) {
             for (int j = 0; j < image[i].length; j++) {
-                if (image[i][j].isAlive()) {
+                if (image[i][j].getState()) {
                     /*
                     Randomly fill colored space in image
                     to keep it from being just a big block of cells
@@ -62,8 +62,7 @@ public class MNCA {
                     double chance = Math.random();
                     // 70% chance of starting alive if image has it alive
                     // modify this so it can work if no image is provided
-                    if (chance <= .72) image[i][j].setState(1);
-                    else image[i][j].setState(0);
+                    image[i][j].setState(chance<=.72);
 
                     bufferedImage[i][j].setState(image[i][j].getState());
                 }
@@ -90,7 +89,7 @@ public class MNCA {
         Graphics2D g2 = (Graphics2D) g;
         for (int i = 0; i < rows; i++) { // row in array = y value in image
             for (int j = 0; j < cols; j++) { // col in array = x value in image
-                g2.setColor(displayedImage[i][j].isAlive() ? Color.WHITE : Color.BLACK);
+                g2.setColor(displayedImage[i][j].getState() ? Color.WHITE : Color.BLACK);
                 g2.drawLine(j, i, j, i);
             }
         }
@@ -98,26 +97,16 @@ public class MNCA {
     }
 
     /**
-     * converts the starting state of the automata to a 2d int[]
-     * where -1 denotes dead cell and 1 denotes living cell
-     * <p>
-     * TODO add multiple states by color
-     * <p>
-     * argb = 0xffffffff
-     * (1111 1111) (1111 1111) (1111 1111) (1111 1111)
-     * alpha = argb >> 24
-     * red = argb >> 16
-     * blue
-     *
+     * converts the starting state of the automata to a Cell[][]
+     * where 0 denotes dead cell and 1 denotes living cell
      * @param image the image of the start state
-     * @return 2d array of the start state
      */
     private void convertTo2D(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
 
         for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel++) {
-            int state = pixels[pixel] + 1;
+            boolean state = pixels[pixel]>=0;
             bufferedImage[row][col] = new Cell(state);
             displayedImage[row][col] = bufferedImage[row][col];
             col++;
@@ -132,7 +121,6 @@ public class MNCA {
      * Converts an image to a list of coordinates that contain their relative distance
      * from the center coordinate
      * <p>
-     * TODO add multiple states by color
      *
      * @param image image of the neighborhood
      * @return list of relative coordinates
@@ -237,7 +225,7 @@ public class MNCA {
                 int neighborhood = fileReader.nextInt();
                 double intervalMin = fileReader.nextDouble();
                 double intervalMax = fileReader.nextDouble();
-                int nextState = fileReader.nextInt();
+                boolean nextState = fileReader.nextInt()==1;
 
                 // Create and store the interval object
                 Interval interval = new Interval(neighborhood, intervalMin, intervalMax, nextState);
@@ -295,8 +283,8 @@ public class MNCA {
      * @param currentCell             state of current cell i, j
      * @return the expected next state of cell i, j
      */
-    private int checkRules(double[] neighborhoodSumAverages, Cell currentCell) {
-        int output = currentCell.getState();
+    private boolean checkRules(double[] neighborhoodSumAverages, Cell currentCell) {
+        boolean output = currentCell.getState();
 
         for (int i = 0; i < neighborhoodSumAverages.length; i++) {
             for (Interval currentInterval : neighborhoodRuleIntervals) {
@@ -323,7 +311,7 @@ public class MNCA {
         for (Coordinate relativeNeighbor : neighbors) {
             if (i + relativeNeighbor.getY() >= 0 && i + relativeNeighbor.getY() < rows &&
                     j + relativeNeighbor.getX() >= 0 && j + relativeNeighbor.getX() < cols &&
-                    bufferedImage[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()].isAlive()) {
+                    bufferedImage[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()].getState()) {
                 //this neighbor is alive
                 neighborCount++;
             }

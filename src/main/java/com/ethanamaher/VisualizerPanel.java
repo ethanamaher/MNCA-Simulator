@@ -15,14 +15,18 @@ public class VisualizerPanel extends JPanel {
         setBackground(Color.BLACK);
 
         Timer timer = new Timer(25, ((e) -> {
-            //thread for drawing displayedImage
-            Thread paintThread = (new Thread(this::repaint));
-            paintThread.start();
-//            repaint();
-
-            //thread for calculations on bufferedImage
+            //thread for calculations on bufferedImage start before painting current state
             Thread updateThread = (new Thread(MNCA::update));
             updateThread.start();
+
+            repaint();
+
+            // wait for calculations to finish
+            try {
+                updateThread.join();
+            } catch (InterruptedException ignored) {
+
+            }
 
             // wait for calculations to complete before continuing
             try {
