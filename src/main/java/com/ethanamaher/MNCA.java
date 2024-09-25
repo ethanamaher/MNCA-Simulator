@@ -18,11 +18,12 @@ public class MNCA {
 
     private final String NEIGHBORHOOD_DIR = "src/main/resources/neighborhoods/example";
     private final String NEIGHBORHOOD_RULES_FILE = NEIGHBORHOOD_DIR + "/rules.txt";
-    private final String START_IMAGE_FILE = "src/main/resources/starts/cow.png";
+    private final String START_IMAGE_FILE = "src/main/resources/starts/randomfilltest.png";
 
-    private Dimension imageSize;
+    private final Dimension imageSize;
     private BufferedImage image;
-    private final Cell[][] imageArray;
+    private final Cell[][] displayedImage;
+    private final Cell[][] bufferedImage;
     private int rows;
     private int cols;
 
@@ -38,38 +39,35 @@ public class MNCA {
         } catch (IOException e) {
             System.err.println("Image file not found at: " + START_IMAGE_FILE);
         }
-        imageArray = convertTo2D(image);
-        this.rows = imageArray.length;
-        this.cols = imageArray[0].length;
-        imageSize = new Dimension(image.getWidth(), image.getHeight());
-        fillRandomly(imageSize);
+        displayedImage = new Cell[image.getHeight()][image.getWidth()];
+        this.rows = displayedImage.length;
+        this.cols = displayedImage[0].length;
+        bufferedImage = new Cell[rows][cols];
+        convertTo2D(image);
+        fillRandomly(displayedImage);
+        this.imageSize = new Dimension(image.getWidth(), image.getHeight());
 
         loadNeighborhoods();
         loadNeighborhoodRules();
     }
 
-    private void fillRandomly(Dimension imageSize) {
-        this.imageSize = imageSize;
-        for (int i = 0; i < imageArray.length; i++) {
-            for (int j = 0; j < imageArray[i].length; j++) {
-                if (imageArray[i][j].isAlive()) {
+    private void fillRandomly(Cell[][] image) {
+        for (int i = 0; i < image.length; i++) {
+            for (int j = 0; j < image[i].length; j++) {
+                if (image[i][j].getState()) {
                     /*
                     Randomly fill colored space in image
                     to keep it from being just a big block of cells
                      */
                     double chance = Math.random();
-                    if (chance <= .72) imageArray[i][j].setAlive();
-                    else imageArray[i][j].setDead();
+                    // 70% chance of starting alive if image has it alive
+                    // modify this so it can work if no image is provided
+                    image[i][j].setState(chance<=.72);
+
+                    bufferedImage[i][j].setState(image[i][j].getState());
                 }
             }
         }
-    }
-
-    /**
-     * TODO pause on close window
-     */
-    public void closing() {
-
     }
 
     public Dimension getImageSize() {
@@ -83,64 +81,46 @@ public class MNCA {
     /**
      * draw the current state
      *
+     * NOT WORKING
+     *
      * @param g Graphics
      */
     synchronized protected void draw(Graphics g) {
-
         Graphics2D g2 = (Graphics2D) g;
         for (int i = 0; i < rows; i++) { // row in array = y value in image
             for (int j = 0; j < cols; j++) { // col in array = x value in image
-                if (imageArray[i][j].isAlive()) {
-                    g2.setColor(Color.WHITE); // living cell
-                    g2.drawLine(j, i, j, i);
-                } else {
-                    g2.setColor(Color.BLACK); // dead cell
-                    g2.drawLine(j, i, j, i);
-                }
+                g2.setColor(displayedImage[i][j].getState() ? Color.WHITE : Color.BLACK);
+                g2.drawLine(j, i, j, i);
             }
         }
         g2.dispose();
     }
 
     /**
-     * converts the starting state of the automata to a 2d int[]
-     * where -1 denotes dead cell and 1 denotes living cell
-     * <p>
-     * TODO add multiple states by color
-     * <p>
-     * argb = 0xffffffff
-     * (1111 1111) (1111 1111) (1111 1111) (1111 1111)
-     * alpha = argb >> 24
-     * red = argb >> 16
-     * blue
-     *
+     * converts the starting state of the automata to a Cell[][]
+     * where 0 denotes dead cell and 1 denotes living cell
      * @param image the image of the start state
-     * @return 2d array of the start state
      */
-    private static Cell[][] convertTo2D(BufferedImage image) {
+    private void convertTo2D(BufferedImage image) {
         byte[] pixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
         final int width = image.getWidth();
-        final int height = image.getHeight();
-        Cell[][] result = new Cell[height][width];
 
         for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel++) {
-            int state = pixels[pixel] + 1;
-            result[row][col] = new Cell(state);
+            boolean state = pixels[pixel]>=0;
+            bufferedImage[row][col] = new Cell(state);
+            displayedImage[row][col] = bufferedImage[row][col];
             col++;
             if (col == width) {
                 col = 0;
                 row++;
             }
         }
-
-        return result;
     }
 
     /**
      * Converts an image to a list of coordinates that contain their relative distance
      * from the center coordinate
      * <p>
-     * TODO add multiple states by color
      *
      * @param image image of the neighborhood
      * @return list of relative coordinates
@@ -245,7 +225,7 @@ public class MNCA {
                 int neighborhood = fileReader.nextInt();
                 double intervalMin = fileReader.nextDouble();
                 double intervalMax = fileReader.nextDouble();
-                int nextState = fileReader.nextInt();
+                boolean nextState = fileReader.nextInt()==1;
 
                 // Create and store the interval object
                 Interval interval = new Interval(neighborhood, intervalMin, intervalMax, nextState);
@@ -262,8 +242,6 @@ public class MNCA {
 
     /**
      * Do an iteration over the cellular automata
-     * Is there a way to multithread this?? without calculating incorrect state values
-     *
      */
     private void step() {
         int numNeighborhoods = neighborhoods.size();
@@ -277,7 +255,7 @@ public class MNCA {
 
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                Cell currentCell = imageArray[i][j];
+                Cell currentCell = bufferedImage[i][j];
                 double[] neighborhoodSums = new double[numNeighborhoods];
 
                 for (int k = 0; k < numNeighborhoods; k++) {
@@ -289,10 +267,11 @@ public class MNCA {
             }
         }
 
-        for(Cell[] cells : imageArray) {
-            for(Cell c : cells) {
-                c.step();
+        for(int i = 0; i < bufferedImage.length; i++) {
+            for(int j = 0; j < bufferedImage[0].length; j++) {
+                bufferedImage[i][j].step();
             }
+            System.arraycopy(bufferedImage[i], 0, displayedImage[i], 0, bufferedImage.length);
         }
     }
 
@@ -304,8 +283,8 @@ public class MNCA {
      * @param currentCell             state of current cell i, j
      * @return the expected next state of cell i, j
      */
-    private int checkRules(double[] neighborhoodSumAverages, Cell currentCell) {
-        int output = currentCell.getState();
+    private boolean checkRules(double[] neighborhoodSumAverages, Cell currentCell) {
+        boolean output = currentCell.getState();
 
         for (int i = 0; i < neighborhoodSumAverages.length; i++) {
             for (Interval currentInterval : neighborhoodRuleIntervals) {
@@ -332,7 +311,7 @@ public class MNCA {
         for (Coordinate relativeNeighbor : neighbors) {
             if (i + relativeNeighbor.getY() >= 0 && i + relativeNeighbor.getY() < rows &&
                     j + relativeNeighbor.getX() >= 0 && j + relativeNeighbor.getX() < cols &&
-                    imageArray[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()].isAlive()) {
+                    bufferedImage[i + relativeNeighbor.getY()][j + relativeNeighbor.getX()].getState()) {
                 //this neighbor is alive
                 neighborCount++;
             }

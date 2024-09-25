@@ -3,11 +3,11 @@ package com.ethanamaher.helpers;
 public class Interval {
     private double min, max;
     private int neighborhood;
-    private int nextState;
+    private boolean nextState;
 
     public Interval() {}
 
-    public Interval(int neighborhood, double min, double max, int nextState) {
+    public Interval(int neighborhood, double min, double max, boolean nextState) {
         this.neighborhood = neighborhood;
         this.min = min;
         this.max = max;
@@ -36,7 +36,7 @@ public class Interval {
         return neighborhood;
     }
 
-    public int getNextState() {
+    public boolean getNextState() {
         return nextState;
     }
 
